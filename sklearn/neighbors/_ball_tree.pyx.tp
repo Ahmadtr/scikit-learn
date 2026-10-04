@@ -33,6 +33,7 @@ VALID_METRICS{{name_suffix}} = [
     'DiceDistance{{name_suffix}}',
     'EuclideanDistance{{name_suffix}}',
     'HammingDistance{{name_suffix}}',
+    'HassanatDistance{{name_suffix}}',
     'HaversineDistance{{name_suffix}}',
     'JaccardDistance{{name_suffix}}',
     'MahalanobisDistance{{name_suffix}}',
