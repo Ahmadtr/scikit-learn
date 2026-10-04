@@ -104,6 +104,7 @@ cdef class DistanceMetric:
     "minkowski"     MinkowskiDistance     p, w      ``sum(w * |x - y|^p)^(1/p)``
     "seuclidean"    SEuclideanDistance    V         ``sqrt(sum((x - y)^2 / V))``
     "mahalanobis"   MahalanobisDistance   V or VI   ``sqrt((x - y)' V^-1 (x - y))``
+    "hassanat"      HassanatDistance      -         ``sum(1 - (1 + min(x, y)) / (1 + max(x, y)))``
     ==============  ====================  ========  ===============================
 
     **Metrics intended for two-dimensional vector spaces:**  Note that the haversine
@@ -234,6 +235,7 @@ METRIC_MAPPING{{name_suffix}} = {
     'hamming': HammingDistance{{name_suffix}},
     'canberra': CanberraDistance{{name_suffix}},
     'braycurtis': BrayCurtisDistance{{name_suffix}},
+    'hassanat': HassanatDistance{{name_suffix}},
     'jaccard': JaccardDistance{{name_suffix}},
     'dice': DiceDistance{{name_suffix}},
     'rogerstanimoto': RogersTanimotoDistance{{name_suffix}},
@@ -293,6 +295,7 @@ cdef class DistanceMetric{{name_suffix}}(DistanceMetric):
     "minkowski"     MinkowskiDistance     p, w      ``sum(w * |x - y|^p)^(1/p)``
     "seuclidean"    SEuclideanDistance    V         ``sqrt(sum((x - y)^2 / V))``
     "mahalanobis"   MahalanobisDistance   V or VI   ``sqrt((x - y)' V^-1 (x - y))``
+    "hassanat"      HassanatDistance      -         ``sum(1 - (1 + min(x, y)) / (1 + max(x, y)))``
     ==============  ====================  ========  ===============================
 
     **Metrics intended for two-dimensional vector spaces:**  Note that the haversine
@@ -1889,6 +1892,45 @@ cdef class CanberraDistance{{name_suffix}}(DistanceMetric{{name_suffix}}):
                 d += 1.
                 i1 = i1 + 1
 
+        return d
+
+#------------------------------------------------------------
+# Hassanat Distance
+#  D(x, y) = sum[ 1 - (1 + min_i + s_i) / (1 + max_i + s_i) ]
+#  with min_i = min(x_i, y_i), max_i = max(x_i, y_i), s_i = max(0, -min_i)
+cdef class HassanatDistance{{name_suffix}}(DistanceMetric{{name_suffix}}):
+    r"""Hassanat Distance
+
+    Hassanat distance is a per-feature bounded distance: each feature
+    contributes a value in [0, 1), so the total is bounded by the number of
+    features and is insensitive to outliers. Negative values are handled by
+    shifting both values of a feature by the absolute value of their minimum.
+
+    .. math::
+       D(x, y) = \sum_i \left(1 - \frac{1 + \min(x_i, y_i) + s_i}
+                                       {1 + \max(x_i, y_i) + s_i}\right),
+       \quad s_i = \max(0, -\min(x_i, y_i))
+    """
+    cdef inline {{INPUT_DTYPE_t}} dist(
+        self,
+        const {{INPUT_DTYPE_t}}* x1,
+        const {{INPUT_DTYPE_t}}* x2,
+        intp_t size,
+    ) except -1 nogil:
+        cdef float64_t mn, mx, d = 0
+        cdef intp_t j
+        for j in range(size):
+            if x1[j] < x2[j]:
+                mn = x1[j]
+                mx = x2[j]
+            else:
+                mn = x2[j]
+                mx = x1[j]
+            # 1 - (1 + mn + s) / (1 + mx + s) == (mx - mn) / (1 + mx + s)
+            if mn >= 0:
+                d += (mx - mn) / (1 + mx)
+            else:
+                d += (mx - mn) / (1 + mx - mn)
         return d
 
 #------------------------------------------------------------
