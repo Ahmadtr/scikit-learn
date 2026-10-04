@@ -29,6 +29,7 @@ from sklearn.metrics.pairwise import (
     cosine_distances,
     cosine_similarity,
     euclidean_distances,
+    hassanat_distances,
     haversine_distances,
     laplacian_kernel,
     linear_kernel,
@@ -1372,6 +1373,34 @@ def test_haversine_distances():
     err_msg = "Haversine distance only valid in 2 dimensions"
     with pytest.raises(ValueError, match=err_msg):
         haversine_distances(X)
+
+
+@pytest.mark.parametrize("csr_container", CSR_CONTAINERS)
+def test_hassanat_distances(csr_container):
+    # Check Hassanat distances against a slow reference implementation.
+    def slow_hassanat_distances(x, y):
+        mn = np.minimum(x, y)
+        mx = np.maximum(x, y)
+        shift = np.where(mn < 0, -mn, 0.0)
+        return np.sum(1 - (1 + mn + shift) / (1 + mx + shift))
+
+    rng = np.random.RandomState(0)
+    X = rng.normal(scale=3, size=(5, 4))
+    Y = rng.normal(scale=3, size=(10, 4))
+    X[rng.random_sample(X.shape) < 0.5] = 0
+    D_reference = np.array([[slow_hassanat_distances(x, y) for y in Y] for x in X])
+
+    assert_allclose(hassanat_distances(X, Y), D_reference)
+    assert_allclose(pairwise_distances(X, Y, metric="hassanat"), D_reference)
+    assert_allclose(pairwise_distances(X, Y, metric="hassanat", n_jobs=2), D_reference)
+    assert_allclose(
+        pairwise_distances(csr_container(X), csr_container(Y), metric="hassanat"),
+        D_reference,
+    )
+    # X against itself
+    D_self = pairwise_distances(X, metric="hassanat")
+    assert_allclose(D_self, D_self.T)
+    assert_allclose(np.diag(D_self), 0)
 
 
 # Paired distances

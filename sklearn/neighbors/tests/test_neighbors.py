@@ -2545,3 +2545,31 @@ def test_neighbors_classifier_with_string_labels(metric, Estimator):
 
     assert y_pred.shape == (5,)
     assert all(label in y for label in y_pred)
+
+
+@pytest.mark.parametrize("csr_container", CSR_CONTAINERS)
+def test_hassanat_metric_brute_and_ball_tree(csr_container):
+    # Brute force and the ball tree must find the same neighbors, and the
+    # brute force algorithm must also accept sparse input.
+    rng = np.random.RandomState(0)
+    X = rng.normal(scale=3, size=(60, 5))
+    X[rng.random_sample(X.shape) < 0.3] = 0
+    Q = rng.normal(scale=3, size=(10, 5))
+
+    dist = {}
+    for algorithm in ("brute", "ball_tree"):
+        nn = neighbors.NearestNeighbors(
+            n_neighbors=4, metric="hassanat", algorithm=algorithm
+        ).fit(X)
+        dist[algorithm], _ = nn.kneighbors(Q)
+    assert_allclose(dist["brute"], dist["ball_tree"])
+
+    nn = neighbors.NearestNeighbors(
+        n_neighbors=4, metric="hassanat", algorithm="brute"
+    ).fit(csr_container(X))
+    dist_sparse, _ = nn.kneighbors(csr_container(Q))
+    assert_allclose(dist_sparse, dist["brute"])
+
+    # "auto" selects the ball tree for dense input
+    nn = neighbors.NearestNeighbors(metric="hassanat").fit(X)
+    assert nn._fit_method == "ball_tree"

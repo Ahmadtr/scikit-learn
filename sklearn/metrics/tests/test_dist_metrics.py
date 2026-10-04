@@ -316,6 +316,79 @@ def test_haversine_metric(X, Y, csr_container):
     assert_allclose(D_sklearn, D_reference)
 
 
+def hassanat_slow(x1, x2):
+    # Reference implementation: the Hassanat distance is not supported by
+    # scipy.spatial.distance.{cdist,pdist}.
+    x1 = np.asarray(x1, dtype=np.float64)
+    x2 = np.asarray(x2, dtype=np.float64)
+    mn = np.minimum(x1, x2)
+    mx = np.maximum(x1, x2)
+    shift = np.where(mn < 0, -mn, 0.0)
+    return np.sum(1 - (1 + mn + shift) / (1 + mx + shift))
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("csr_container", CSR_CONTAINERS)
+def test_hassanat_metric(dtype, csr_container):
+    rng = check_random_state(0)
+    # Negative and positive values, and about half of the entries are zeros.
+    X = rng.normal(scale=3, size=(20, 6))
+    Y = rng.normal(scale=3, size=(25, 6))
+    X[rng.random_sample(X.shape) < 0.5] = 0
+    Y[rng.random_sample(Y.shape) < 0.5] = 0
+    X, Y = X.astype(dtype), Y.astype(dtype)
+
+    D_reference = np.array([[hassanat_slow(x, y) for y in Y] for x in X])
+
+    hassanat = DistanceMetric.get_metric("hassanat", dtype)
+    assert_allclose(hassanat.pairwise(X, Y), D_reference)
+    assert_allclose(hassanat.pairwise(X), hassanat.pairwise(X, X))
+
+    X_csr, Y_csr = csr_container(X), csr_container(Y)
+    for X_in, Y_in in [(X_csr, Y_csr), (X_csr, Y), (X, Y_csr)]:
+        D_sklearn = hassanat.pairwise(X_in, Y_in)
+        assert D_sklearn.flags.c_contiguous
+        assert_allclose(D_sklearn, D_reference)
+
+    # Explicit zeros stored in the CSR structure must not change the result.
+    n_samples, n_features = X.shape
+    X_explicit = csr_container(
+        (
+            X.ravel(),
+            np.tile(np.arange(n_features), n_samples),
+            np.arange(0, X.size + 1, n_features),
+        ),
+        shape=X.shape,
+    )
+    assert X_explicit.nnz == X.size
+    assert_allclose(hassanat.pairwise(X_explicit, Y_csr), D_reference)
+
+
+def test_hassanat_metric_values():
+    hassanat = DistanceMetric.get_metric("hassanat")
+    # Hand-computed values: identical points, non-negative values and a
+    # negative value (shifted by its absolute value).
+    assert_allclose(hassanat.pairwise([[1.0, 2.0]], [[1.0, 2.0]]), [[0.0]])
+    assert_allclose(hassanat.pairwise([[0.0]], [[1.0]]), [[0.5]])
+    assert_allclose(hassanat.pairwise([[-1.0]], [[1.0]]), [[2 / 3]])
+    # A feature missing in one sparse vector is compared to an implicit zero.
+    assert_allclose(hassanat.pairwise([[0.0, 3.0]], [[0.0, 0.0]]), [[0.75]])
+
+
+def test_hassanat_metric_is_a_metric():
+    # The ball tree relies on the triangle inequality. The distance is a sum
+    # over features of a one-dimensional distance, so checking the
+    # one-dimensional case on a grid of negative and positive values is enough.
+    values = np.linspace(-6, 6, 49).reshape(-1, 1)
+    D = DistanceMetric.get_metric("hassanat").pairwise(values)
+
+    assert (D >= 0).all()
+    assert_allclose(np.diag(D), 0)
+    assert_allclose(D, D.T)
+    # D[i, k] <= D[i, j] + D[j, k] for all i, j, k
+    assert (D[:, None, :] <= D[:, :, None] + D[None, :, :] + 1e-12).all()
+
+
 def test_pyfunc_metric():
     X = np.random.random((10, 3))
 
