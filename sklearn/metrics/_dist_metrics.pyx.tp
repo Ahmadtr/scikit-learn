@@ -1933,6 +1933,69 @@ cdef class HassanatDistance{{name_suffix}}(DistanceMetric{{name_suffix}}):
                 d += (mx - mn) / (1 + mx - mn)
         return d
 
+    cdef inline {{INPUT_DTYPE_t}} dist_csr(
+        self,
+        const {{INPUT_DTYPE_t}}* x1_data,
+        const int32_t* x1_indices,
+        const {{INPUT_DTYPE_t}}* x2_data,
+        const int32_t* x2_indices,
+        const int32_t x1_start,
+        const int32_t x1_end,
+        const int32_t x2_start,
+        const int32_t x2_end,
+        const intp_t size,
+    ) except -1 nogil:
+
+        cdef:
+            intp_t ix1, ix2
+            intp_t i1 = x1_start
+            intp_t i2 = x2_start
+
+            float64_t d = 0.0
+            float64_t a, b, mn, mx
+
+        # A feature present in only one vector is compared to an implicit 0,
+        # which contributes |v| / (1 + |v|) (also 0 for an explicit zero).
+        while i1 < x1_end and i2 < x2_end:
+            ix1 = x1_indices[i1]
+            ix2 = x2_indices[i2]
+
+            if ix1 == ix2:
+                a = x1_data[i1]
+                b = x2_data[i2]
+                if a < b:
+                    mn = a
+                    mx = b
+                else:
+                    mn = b
+                    mx = a
+                if mn >= 0:
+                    d += (mx - mn) / (1 + mx)
+                else:
+                    d += (mx - mn) / (1 + mx - mn)
+                i1 = i1 + 1
+                i2 = i2 + 1
+            elif ix1 < ix2:
+                a = fabs(x1_data[i1])
+                d += a / (1 + a)
+                i1 = i1 + 1
+            else:
+                b = fabs(x2_data[i2])
+                d += b / (1 + b)
+                i2 = i2 + 1
+
+        while i1 < x1_end:
+            a = fabs(x1_data[i1])
+            d += a / (1 + a)
+            i1 = i1 + 1
+
+        while i2 < x2_end:
+            b = fabs(x2_data[i2])
+            d += b / (1 + b)
+            i2 = i2 + 1
+
+        return d
+
 #------------------------------------------------------------
 # Bray-Curtis Distance
 #  D(x, y) = sum[abs(x_i - y_i)] / sum[abs(x_i) + abs(y_i)]
