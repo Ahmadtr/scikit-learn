@@ -142,7 +142,62 @@ of valid metrics use `KDTree.valid_metrics` and `BallTree.valid_metrics`:
     >>> KDTree.valid_metrics
     ['euclidean', 'l2', 'minkowski', 'p', 'manhattan', 'cityblock', 'l1', 'chebyshev', 'infinity']
     >>> BallTree.valid_metrics
-    ['euclidean', 'l2', 'minkowski', 'p', 'manhattan', 'cityblock', 'l1', 'chebyshev', 'infinity', 'seuclidean', 'mahalanobis', 'hamming', 'canberra', 'braycurtis', 'jaccard', 'dice', 'rogerstanimoto', 'russellrao', 'sokalmichener', 'sokalsneath', 'haversine', 'pyfunc']
+    ['euclidean', 'l2', 'minkowski', 'p', 'manhattan', 'cityblock', 'l1', 'chebyshev', 'infinity', 'seuclidean', 'mahalanobis', 'hamming', 'canberra', 'braycurtis', 'hassanat', 'jaccard', 'dice', 'rogerstanimoto', 'russellrao', 'sokalmichener', 'sokalsneath', 'haversine', 'pyfunc']
+
+.. _hassanat_distance:
+
+Hassanat distance
+-----------------
+
+The Hassanat distance [Hassanat2015]_ sums a bounded contribution from each
+feature. For two samples :math:`x` and :math:`y` with :math:`n` features:
+
+.. math::
+
+    D(x, y) = \sum_{i=1}^{n} \left(1 - \frac{1 + \min(x_i, y_i) + s_i}
+    {1 + \max(x_i, y_i) + s_i}\right), \quad
+    s_i = \max(0, -\min(x_i, y_i))
+
+Each feature contributes a value in :math:`[0, 1)`, so no single feature,
+however large or corrupted its value, can add more than 1 to the total
+distance. Negative values are handled by shifting both values of a feature by
+:math:`s_i`. The distance satisfies the triangle inequality, so it can be used
+with :class:`BallTree`.
+
+It is available as `metric="hassanat"` in the neighbors estimators, in
+:class:`~sklearn.metrics.DistanceMetric` and in
+:func:`~sklearn.metrics.pairwise_distances`::
+
+    >>> from sklearn.neighbors import NearestNeighbors
+    >>> X = [[0, 1], [1, 3], [10, 100]]
+    >>> nn = NearestNeighbors(n_neighbors=2, metric="hassanat").fit(X)
+    >>> nn.kneighbors([[0, 1]])
+    (array([[0., 1.]]), array([[0, 1]]))
+
+Computing the distance between two samples takes :math:`O(n)` time, like the
+Manhattan distance. It is supported by the ``'ball_tree'`` and ``'brute'``
+algorithms (including sparse input with ``'brute'``), but not by ``'kd_tree'``.
+
+Because the contribution of each feature is bounded, the distance is less
+sensitive than the Euclidean distance to outliers and to features measured on
+very different scales. It is not expected to outperform the Euclidean distance
+on clean, standardized data. A large comparison of 54 distance measures on 28
+datasets [Prasath2017]_ reports the Hassanat distance among the best
+performing measures, including on data with added noise.
+See :ref:`sphx_glr_auto_examples_neighbors_plot_hassanat_distance.py` for an
+illustration.
+
+.. rubric:: References
+
+.. [Hassanat2015] Alkasassbeh, M., Altarawneh, G. A., and Hassanat, A. B.
+   "On enhancing the performance of nearest neighbour classifiers using
+   Hassanat distance metric". Canadian Journal of Pure and Applied Sciences,
+   9(1), 2015. `arXiv:1501.00687 <https://arxiv.org/abs/1501.00687>`_
+
+.. [Prasath2017] Prasath, V. B. S., Abu Alfeilat, H. A., Lasassmeh, O.,
+   Hassanat, A. B. A., and Tarawneh, A. S. "Distance and similarity measures
+   effect on the performance of k-nearest neighbor classifier - a review".
+   `arXiv:1708.04321 <https://arxiv.org/abs/1708.04321>`_
 
 .. _classification:
 
