@@ -676,6 +676,7 @@ _VALID_METRICS = [
     "wminkowski",
     "nan_euclidean",
     "haversine",
+    "hassanat",
 ]
 if sp_base_version < parse_version("1.17"):  # pragma: no cover
     # Deprecated in SciPy 1.15 and removed in SciPy 1.17
@@ -738,8 +739,8 @@ def pairwise_distances_argmin_min(
 
         Valid values for metric are:
 
-        - from scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
-          'manhattan', 'nan_euclidean']
+        - from scikit-learn: ['cityblock', 'cosine', 'euclidean', 'hassanat', 'l1',
+          'l2', 'manhattan', 'nan_euclidean']
 
         - from :mod:`scipy.spatial.distance`: ['braycurtis', 'canberra', 'chebyshev',
           'correlation', 'dice', 'hamming', 'jaccard', 'mahalanobis', 'minkowski',
@@ -879,8 +880,8 @@ def pairwise_distances_argmin(X, Y, *, axis=1, metric="euclidean", metric_kwargs
 
         Valid values for metric are:
 
-        - from scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
-          'manhattan', 'nan_euclidean']
+        - from scikit-learn: ['cityblock', 'cosine', 'euclidean', 'hassanat', 'l1',
+          'l2', 'manhattan', 'nan_euclidean']
 
         - from :mod:`scipy.spatial.distance`: ['braycurtis', 'canberra', 'chebyshev',
           'correlation', 'dice', 'hamming', 'jaccard', 'mahalanobis', 'minkowski',
@@ -1018,6 +1019,48 @@ def haversine_distances(X, Y=None):
     from sklearn.metrics import DistanceMetric
 
     return DistanceMetric.get_metric("haversine").pairwise(X, Y)
+
+
+@validate_params(
+    {"X": ["array-like", "sparse matrix"], "Y": ["array-like", "sparse matrix", None]},
+    prefer_skip_nested_validation=True,
+)
+def hassanat_distances(X, Y=None):
+    """Compute the Hassanat distance between samples in X and Y.
+
+    The Hassanat distance is the sum over features of a bounded per-feature
+    distance in [0, 1). Negative values are handled by shifting both values of
+    a feature by the absolute value of their minimum.
+
+    .. math::
+       D(x, y) = \\sum_i \\left(1 - \\frac{1 + \\min(x_i, y_i) + s_i}
+                                       {1 + \\max(x_i, y_i) + s_i}\\right),
+       \\quad s_i = \\max(0, -\\min(x_i, y_i))
+
+    Parameters
+    ----------
+    X : {array-like, sparse matrix} of shape (n_samples_X, n_features)
+        A feature array.
+
+    Y : {array-like, sparse matrix} of shape (n_samples_Y, n_features), \
+            default=None
+        An optional second feature array. If `None`, uses `Y=X`.
+
+    Returns
+    -------
+    distances : ndarray of shape (n_samples_X, n_samples_Y)
+        The distance matrix.
+
+    Examples
+    --------
+    >>> from sklearn.metrics.pairwise import hassanat_distances
+    >>> hassanat_distances([[0, 1], [1, 3]])
+    array([[0., 1.],
+           [1., 0.]])
+    """
+    from sklearn.metrics import DistanceMetric
+
+    return DistanceMetric.get_metric("hassanat").pairwise(X, Y)
 
 
 @validate_params(
@@ -1890,6 +1933,7 @@ PAIRWISE_DISTANCE_FUNCTIONS = {
     "cityblock": manhattan_distances,
     "cosine": cosine_distances,
     "euclidean": euclidean_distances,
+    "hassanat": hassanat_distances,
     "haversine": haversine_distances,
     "l2": euclidean_distances,
     "l1": manhattan_distances,
@@ -1914,6 +1958,7 @@ def distance_metrics():
     'cityblock'     metrics.pairwise.manhattan_distances
     'cosine'        metrics.pairwise.cosine_distances
     'euclidean'     metrics.pairwise.euclidean_distances
+    'hassanat'      metrics.pairwise.hassanat_distances
     'haversine'     metrics.pairwise.haversine_distances
     'l1'            metrics.pairwise.manhattan_distances
     'l2'            metrics.pairwise.euclidean_distances
@@ -2307,8 +2352,8 @@ def pairwise_distances(
 
     Valid values for metric are:
 
-    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
-      'manhattan', 'nan_euclidean']. All metrics support sparse matrix
+    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'hassanat', 'l1',
+      'l2', 'manhattan', 'nan_euclidean']. All metrics support sparse matrix
       inputs except 'nan_euclidean'.
 
     - From :mod:`scipy.spatial.distance`: ['braycurtis', 'canberra', 'chebyshev',

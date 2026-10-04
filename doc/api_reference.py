@@ -857,6 +857,7 @@ API_REFERENCE = {
                     "pairwise.cosine_similarity",
                     "pairwise.distance_metrics",
                     "pairwise.euclidean_distances",
+                    "pairwise.hassanat_distances",
                     "pairwise.haversine_distances",
                     "pairwise.kernel_metrics",
                     "pairwise.laplacian_kernel",
